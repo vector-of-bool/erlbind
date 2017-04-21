@@ -1,8 +1,11 @@
 find_path(
     ERL_NIF_INCLUDE_DIR erl_nif.h
     PATHS
-        "C:/Program Files/erl8.0/usr/include"
-        "C:/Program Files (x86)/erl8.0/usr/include"
+        "C:/Program Files/erl8.0/"
+        "C:/Program Files (x86)/erl8.0/"
+        /usr/lib/erlang/
+    PATH_SUFFIXES
+        usr/include
     )
 
 if(NOT ERL_NIF_INCLUDE_DIR)
