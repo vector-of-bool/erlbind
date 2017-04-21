@@ -3,6 +3,7 @@
 
 #include "common.hpp"
 #include "convert.hpp"
+#include "atom.hpp"
 
 #include <erl_nif.h>
 
@@ -45,9 +46,6 @@ public:
     }
 };
 
-template <typename T> T extract(ERL_NIF_TERM term) {
-}
-
 namespace detail {
 
 template <typename...> struct tag {};
@@ -77,7 +75,7 @@ std::tuple<Ts...> build_args_tuple(::ErlNifEnv* env,
                                    int argc,
                                    const ::ERL_NIF_TERM* argv,
                                    std::index_sequence<Is...>) {
-    return std::tuple<Ts...>(erl::extract<std::decay_t<Ts>>(argv[Is])...);
+    return std::tuple<Ts...>(erl::from_erl<std::decay_t<Ts>>(env, argv[Is])...);
 }
 
 template <typename Signature> struct call_helper;
@@ -91,12 +89,17 @@ template <typename... Args> struct call_helper<void(Args...)> {
 template <typename Ret, typename... Args> struct call_helper<Ret(Args...)> {
     template <typename Func>
     static ERL_NIF_TERM call(Func fn, ::ErlNifEnv* env, int argc, const ::ERL_NIF_TERM* argv) {
-        auto tup = build_args_tuple<Args...>(env,
-                                             argc,
-                                             argv,
-                                             std::make_index_sequence<sizeof...(Args)>{});
-        auto ret = apply(fn, tup);
-        return erl::convert<decltype(ret)>::to_erl(env, ret);
+        try {
+            auto tup = build_args_tuple<Args...>(env,
+                                                argc,
+                                                argv,
+                                                std::make_index_sequence<sizeof...(Args)>{});
+            auto ret = apply(fn, tup);
+            return erl::to_erl(env, ret);
+        } catch (const conversion_failed& conv) {
+            auto error = to_erl(env, std::make_tuple("Invalid argument", conv.what()));
+            return ::enif_raise_exception(env, error);
+        }
     }
 };
 
